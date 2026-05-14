@@ -1,0 +1,15 @@
+{
+    "terminal.integrated.defaultProfile.linux": "pixi",
+    "terminal.integrated.profiles.linux": {
+        "pixi": { "path": "bash", "args": ["-ilc", "pixi shell"] }
+    },
+    "search.useIgnoreFiles": false,
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.defaultPackageManager": "ms-python.python:pip",
+    "pixi-code.pixiExecutable": "/home/onion/.pixi/bin/pixi",
+    "python.pixiToolPath": "/home/onion/.pixi/bin/pixi",
+    "ROS2.pixiRoot": "/home/onion/wwu/arm-demos/.pixi",
+    "python-envs.workspaceSearchPaths": [],
+    "files.readonlyInclude": { "**/.pixi/**": true, "**/.packages/**": true, "**/install/**": true, "**/build/**": true },
+    "files.associations": { ".setup_assistant": "yaml" },
+}
