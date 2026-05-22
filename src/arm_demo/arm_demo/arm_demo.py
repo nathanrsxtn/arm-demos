@@ -18,34 +18,48 @@ from std_srvs.srv import Trigger
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
+# Working Area
+# botlef: 0.50352; -0.2518; 0.028177
+# botrig: 0.49896; 0.2607; 0.028141
+# toprig: 0.12029; 0.27638; 0.017567
+# toplef: 0.1244; -0.27369; 0.01856
+# height: 0.25
+
+WORLD_TOP_LEFT_X = 0.12
+WORLD_TOP_LEFT_Y = -0.27
+WORLD_TOP_LEFT_Z = 0.10
+WORLD_BOTTOM_RIGHT_X = 0.50
+WORLD_BOTTOM_RIGHT_Y = 0.27
+WORLD_BOTTOM_RIGHT_Z = 0.30
+
+PALM_MIN = 0.4
+PALM_MAX = 1.9
+
+
+
 LOOK_ONE = {
-    "elbow_joint": -0.6769,
-    "shoulder_lift_joint": -1.4927,
-    "shoulder_pan_joint": 0,
-    "wrist_1_joint": -2.3952,
-    "wrist_2_joint": 1.6315,
+    "shoulder_pan_joint": np.pi,
+    "shoulder_lift_joint": -np.pi / 2,
+    "elbow_joint": -np.pi / 4,
+    "wrist_1_joint": -np.pi / 2,
+    "wrist_2_joint": np.pi / 2,
     "wrist_3_joint": 0,
 }
 
 EE_DOWN = (1.0, 0.0, 0.0, 0.0)
 
-ROBOT_Z = 0.10
+IMAGE_W = 640
+IMAGE_H = 480
 
-IMAGE_W = 320
-IMAGE_H = 240
+WORLD_CENTER_X = (WORLD_TOP_LEFT_X + WORLD_BOTTOM_RIGHT_X) / 2 + WORLD_TOP_LEFT_X
+WORLD_CENTER_Y = (WORLD_TOP_LEFT_Y + WORLD_BOTTOM_RIGHT_Y) / 2 + WORLD_TOP_LEFT_Y
+WORLD_CENTER_Z = (WORLD_TOP_LEFT_Z + WORLD_BOTTOM_RIGHT_Z) / 2 + WORLD_TOP_LEFT_Z
 
-SCALE_X = 0.0008
-SCALE_Y = 0.0008
+MOVE_INTERVAL = 0.00
+MIN_MOVE_DISTANCE = 0.01
+MIN_ROT_DISTANCE = 0.00001
 
-WORLD_CENTER_X = 0.30
-WORLD_CENTER_Y = 0.00
-
-SMOOTHING = 0.2
-
-MOVE_INTERVAL = 0.15
-MIN_MOVE_DISTANCE = 0.005
-
-CAMERA_FPS = 10
+CAMERA_FPS = 30
 
 mp_hands = mp.tasks.vision.HandLandmarksConnections
 mp_drawing = mp.tasks.vision.drawing_utils
@@ -237,11 +251,13 @@ def robot_worker(
             time.sleep(0.01)
             continue
 
-        x, y = target
+        x, y, z, roll = target
+        
+        qz = np.clip(np.abs(roll / np.pi), 0, 1.0)
 
         try:
             logger.info(f"Moving to x={x:.3f}, y={y:.3f}")
-            go_to_pose(ur, arm, logger, x, y, ROBOT_Z, *EE_DOWN, params=params)
+            go_to_pose(ur, arm, logger, x, y, z, 1.0, 0.0, qz, 0.0, params=params)
 
         except Exception as e:
             logger.error(f"Robot worker error: {e}")
@@ -288,8 +304,8 @@ def main():
 
         params = PlanRequestParameters(ur, "ompl")
 
-        params.max_velocity_scaling_factor = 0.15
-        params.max_acceleration_scaling_factor = 0.15
+        params.max_velocity_scaling_factor = 0.75
+        params.max_acceleration_scaling_factor = 0.75
 
         logger.info("Moving to start pose")
 
@@ -317,11 +333,10 @@ def main():
 
             start_time = time.monotonic()
 
-            filtered_x = WORLD_CENTER_X
-            filtered_y = WORLD_CENTER_Y
-
-            prev_sent_x = filtered_x
-            prev_sent_y = filtered_y
+            prev_sent_x = WORLD_CENTER_X
+            prev_sent_y = WORLD_CENTER_Y
+            prev_sent_z = WORLD_CENTER_Z
+            prev_sent_roll = 0
 
             last_move = 0
             now = time.time()
@@ -353,41 +368,49 @@ def main():
 
                     hand = result.hand_landmarks[0]
 
-                    # wrist landmark
-                    wrist = hand[0]
+                    # index finger tip landmark
+                    wrist = hand[8]
 
-                    px = int(wrist.x * IMAGE_W)
-                    py = int(wrist.y * IMAGE_H)
+                    palm_indices = [0,1,5,9,13,17]
+                    palm_size = sum(
+                        np.hypot(
+                            hand[b].x - hand[a].x,
+                            hand[b].y - hand[a].y
+                        ) for a, b in zip(palm_indices, palm_indices[1:] + [palm_indices[0]])
+                    )
+                    palm_size = (palm_size - PALM_MIN) / (PALM_MAX - PALM_MIN)
 
-                    cv2.circle(frame, (px, py), 10, (0, 255, 0), -1)
+                    knuckle_dy = hand[7].y - hand[5].y
+                    knuckle_dz = hand[7].z - hand[5].z
 
-                    dx = px - (IMAGE_W / 2)
-                    dy = py - (IMAGE_H / 2)
+                    # Swap X and Y
+                    target_x = WORLD_TOP_LEFT_X + (wrist.y * (WORLD_BOTTOM_RIGHT_X - WORLD_TOP_LEFT_X))
+                    target_y = WORLD_TOP_LEFT_Y + (wrist.x * (WORLD_BOTTOM_RIGHT_Y - WORLD_TOP_LEFT_Y))
+                    target_z = WORLD_TOP_LEFT_Z + (palm_size * (WORLD_BOTTOM_RIGHT_Z - WORLD_TOP_LEFT_Z))
+                    target_roll = np.arctan2(knuckle_dz, knuckle_dy)
 
-                    target_x = WORLD_CENTER_X + dy * SCALE_Y
-                    target_y = WORLD_CENTER_Y + dx * SCALE_X
-
-                    target_x = np.clip(target_x, 0.15, 0.45)
-                    target_y = np.clip(target_y, -0.25, 0.25)
-
-                    filtered_x = (1 - SMOOTHING) * filtered_x + SMOOTHING * target_x
-
-                    filtered_y = (1 - SMOOTHING) * filtered_y + SMOOTHING * target_y
+                    target_x = np.clip(target_x, WORLD_TOP_LEFT_X, WORLD_BOTTOM_RIGHT_X)
+                    target_y = np.clip(target_y, WORLD_TOP_LEFT_Y, WORLD_BOTTOM_RIGHT_Y)
+                    target_z = np.clip(target_z, WORLD_TOP_LEFT_Z, WORLD_BOTTOM_RIGHT_Z)
 
                     now = time.time()
 
                     moved_far_enough = (
-                        abs(filtered_x - prev_sent_x) > MIN_MOVE_DISTANCE
-                        or abs(filtered_y - prev_sent_y) > MIN_MOVE_DISTANCE
+                        abs(target_x - prev_sent_x) > MIN_MOVE_DISTANCE
+                        or abs(target_y - prev_sent_y) > MIN_MOVE_DISTANCE
+                        or abs(target_z - prev_sent_z) > MIN_MOVE_DISTANCE
+                        or abs(target_roll - prev_sent_roll) > MIN_ROT_DISTANCE
                     )
 
                     if now - last_move > MOVE_INTERVAL and moved_far_enough:
 
                         with target_lock:
-                            latest_target = (filtered_x, filtered_y)
+                            latest_target = (target_x, target_y, target_z, target_roll)
 
-                        prev_sent_x = filtered_x
-                        prev_sent_y = filtered_y
+                        prev_sent_x = target_x
+                        prev_sent_y = target_y
+                        prev_sent_z = target_z
+                        prev_sent_roll = target_roll
 
                         last_move = now
 

@@ -35,7 +35,7 @@ def generate_launch_description():
     )
 
     arm_demo = Node(
-        name="moveit_py",
+        name="arm_demo",
         package="arm_demo",
         executable="arm_demo",
         output="both",

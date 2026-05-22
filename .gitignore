@@ -1,0 +1,6 @@
+.packages
+.pixi
+build
+install
+log
+*.task
