@@ -7,3 +7,4 @@ html_theme_options = {
     "sticky_navigation": True,
     "navigation_depth": -1,
 }
+html_baseurl = "https://mrrp-lab.github.io/arm-demos"
