@@ -1,9 +1,9 @@
-project = "ROS 2 documentation"
+project = "MRRP Lab Arm Demos Documentation"
 author = "Open Robotics"
 extensions = ["sphinx_rtd_theme"]
 html_theme = "sphinx_rtd_theme"
 html_theme_options = {
-    "collapse_navigation": False,
+    "collapse_navigation": True,
     "sticky_navigation": True,
     "navigation_depth": -1,
 }

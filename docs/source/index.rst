@@ -2,7 +2,6 @@ Arm Demos Documentation
 =======================
 
 .. toctree::
-   :titlesonly:
    :maxdepth: 1
    :hidden:
 
