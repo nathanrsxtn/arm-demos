@@ -1,12 +1,11 @@
 {
-    "terminal.integrated.defaultProfile.linux": "pixi",
-    "terminal.integrated.profiles.linux": {
-        "pixi": { "path": "bash", "args": ["-ilc", "pixi shell"] }
-    },
+    // Useful when not using Pixi extension:
+    // "terminal.integrated.defaultProfile.linux": "pixi",
+    // "terminal.integrated.profiles.linux": { "pixi": { "path": "bash", "args": ["-ilc", "pixi shell"] } },
     "search.useIgnoreFiles": false,
-    "python-envs.defaultEnvManager": "ms-python.python:system",
-    "python-envs.defaultPackageManager": "ms-python.python:pip",
-    "python-envs.workspaceSearchPaths": [],
+    "python-envs.defaultEnvManager": "renan-r-santos.pixi-code:pixi",
+    "python-envs.defaultPackageManager": "renan-r-santos.pixi-code:pixi",
+    "python-envs.workspaceSearchPaths": [".pixi", "*/.pixi"],
     "files.readonlyInclude": { "**/.pixi/**": true, "**/.packages/**": true, "**/install/**": true, "**/build/**": true },
     "files.associations": { ".setup_assistant": "yaml" },
 }

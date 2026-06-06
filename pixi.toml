@@ -11,7 +11,6 @@ scripts = ["install/setup.sh"]
 
 [tasks]
 arm-demo = "ros2 launch arm_demo arm_demo.launch.py gripper_type:=vacuum use_camera:=false"
-demo-gripper = "ros2 launch colman_motion pick_and_place.launch.py gripper_type:=vacuum"
 
 # Tool Tasks
 download-mediapipe-model = "curl -O https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
@@ -21,14 +20,16 @@ clean = "rm -r build install log"
 purge = "rm -r .pixi build install log ~/.cache/rattler"
 
 # Task Aliases
-b = [{task = "build" }]
+b = [{ task = "build" }]
 launch = [{ task = "launch-lan" }]
 run = [{ task = "launch-lan" }]
 sim = [{ task = "launch-sim" }]
 mock = [{ task = "launch-sim" }]
+docs = [{ task = "build-docs" }]
 
-# Experiment Tasks
+# Experimental Tasks
 moveit = "ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur3e use_sim_time:=true launch_rviz:=true"
+gripper-demo = "ros2 launch colman_motion pick_and_place.launch.py gripper_type:=vacuum"
 
 # Development Environment Build and Install Task
 [tasks.build]
@@ -114,7 +115,6 @@ debugpy = "*"
 opencv-python = "*"
 depthai = "*"
 mediapipe = "*"
-# open3d = { path = "./open3d-0.19.0-cp312-cp312-manylinux_2_35_x86_64.whl" }
 
 [activation.env]
 # Enable ROS Colored Logging
@@ -138,3 +138,19 @@ install-oak = "./tools/create-oak-env.sh"
 setup-oak = "echo 'SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"03e7\", MODE=\"0666\"' | sudo tee /etc/udev/rules.d/80-movidius.rules && sudo udevadm control --reload-rules && sudo udevadm trigger"
 connect-oak-wsl = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w $PWD)\\tools\\connect-oak-wsl.ps1"'
 oak-viewer = "dbus-launch oak-viewer"
+oak-viewer-wsl = "dbus-launch oak-viewer --use-gl=desktop --enable-unsafe-swiftshader --ignore-gpu-blocklist"
+
+# Environment for generating documentation
+[environments.docs]
+features = ["docs"]
+no-default-feature = true
+
+[feature.docs.dependencies]
+python = "3.12.*"
+sphinx = "8.2.*"
+sphinx-rtd-theme = "3.1.*"
+
+[feature.docs.tasks.build-docs]
+cwd = "docs"
+cmd = 'sphinx-build -M html source build -c . -W'
+clean-env = true
